@@ -1,16 +1,15 @@
-const path = require('node:path');
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 const { google } = require('googleapis');
 const OAuth2 = google.auth.OAuth2;
-//const { oauth2 } = require('googleapis/build/src/apis/oauth2');
 
-const textos = require('./db/textos');
 
-// const { listarArquivosDoDiretorio } = require('./leituraDeArquivos');
-const { arquivoExcel } = require('./leituraDeExcel');
+const {textSend} = require('./db/textSend');
+
+
+const { convertExcelForList } = require('./readFileXlsx');
 const { createLog } = require('./createLog');
-//const { gmail } = require('googleapis/build/src/apis/gmail');
+
 
 const OAuth2_client = new OAuth2(
   process.env.GMAIL_CLIENTE_ID,
@@ -26,10 +25,10 @@ const logData = []
 const delay = (amount = 500) => new Promise(resolve => setTimeout(resolve, amount))
 
 function get_html_message(name) {
-  return textos.textoCarta(name);
+  return textSend(name);
 }
 
-function send_mail(name, recipient, caminho, arquivo) {
+function send_mail(name, recipient, pathFile, file) {
   const acessToken = OAuth2_client.getAccessToken();
 
   const transporter = nodemailer.createTransport({
@@ -51,8 +50,8 @@ function send_mail(name, recipient, caminho, arquivo) {
     html: get_html_message(name),
     attachments: [
       {
-        filename: arquivo,
-        path: `./src/db/${caminho}`,
+        filename: file,
+        path: `./src/db/${pathFile}`,
       },
     ],
   };
@@ -62,12 +61,10 @@ function send_mail(name, recipient, caminho, arquivo) {
     transporter.sendMail(mailOptions)
       .then(response => {
           transporter.close();
-          // logData.push(response)
           return resolve(response);
       })
       .catch(error => {
           transporter.close();
-          // logData.push(error)
           return reject(error);
       });
   })
@@ -78,10 +75,10 @@ function send_mail(name, recipient, caminho, arquivo) {
 function getListSendEmail(arquivos = [], pathDocuments) {
   return arquivos.map((item, index) => {  
     return {
-      nome: item.name,
+      name: item.name,
       email: item.email,
-      caminhoArquivo: `${pathDocuments}/${item.cnpj}.pdf`,
-      arquivo:`${item.cnpj}.pdf`
+      pathFile: `${pathDocuments}/${item.cnpj}.pdf`,
+      file:`${item.cnpj}.pdf`
     };
   });
 }
@@ -90,12 +87,12 @@ function getListSendEmail(arquivos = [], pathDocuments) {
 
 
 async function sendAllEmail(estado = '') {
-  const caminho = `/Estados/${estado}/boletos`;
-  const listSender = await arquivoExcel
-  const arquivosFiltrados = getListSendEmail(listSender, caminho);
+  const pathFiles = `/Estados/${estado}/boletos`;
+  const listSender = await convertExcelForList(`./src/db/Estados/${estado}/${estado}.xlsx`)
+  const listSendEmail = getListSendEmail(listSender, pathFiles);
  
-  for (const item of arquivosFiltrados) {
-    const result = await send_mail(item.nome, item.email,item.caminhoArquivo);
+  for (const item of listSendEmail) {
+    const result = await send_mail(item.name, 'ch4r4d4@gmail.com',item.pathFile, item.file);
     logData.push(result);
     await delay()
   }
