@@ -21,6 +21,10 @@ OAuth2_client.setCredentials({
 });
 
 const logData = []
+const listNotFoundEmail = []
+const successList = []
+const errorList = []
+let count = 0
 
 const delay = (amount = 500) => new Promise(resolve => setTimeout(resolve, amount))
 
@@ -92,14 +96,32 @@ async function sendAllEmail(estado = '') {
   const listSendEmail = getListSendEmail(listSender, pathFiles);
  
   for (const item of listSendEmail) {
-    const result = await send_mail(item.name, 'ch4r4d4@gmail.com',item.pathFile, item.file);
-    logData.push(result);
+    count++
+    console.log(`-----${count}-----`)
+    console.log(item)
+    if (item.email) {
+      const result = await send_mail(item.name, item.email,item.pathFile, item.file);
+      logData.push(result);
+      
+      if (result.accepted.length > 0) { 
+        successList.push(item)
+      }
+      if (result.rejected.length > 0) { 
+        errorList.push(item)
+      }
+    } else {
+      listNotFoundEmail.push(item)
+    }
     await delay()
   }
 
-  createLog(logData, estado)
+  createLog(logData,estado,`log-${estado}-`)
+  createLog(listNotFoundEmail,estado, `listNotFoundEmail-${estado}-`)
+  createLog(successList, estado,`successList-${estado}-`)
+  createLog(errorList,estado, `errorList-${estado}-`)
+
 }
 
 
 
-sendAllEmail('AC');
+sendAllEmail('');
